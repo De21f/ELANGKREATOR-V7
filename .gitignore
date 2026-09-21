@@ -1,0 +1,4 @@
+node_modules/
+.env
+private-storage/ebooks/*.pdf
+*.log
