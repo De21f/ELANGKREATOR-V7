@@ -1,0 +1,20 @@
+import express from "express";import cookieParser from "cookie-parser";import helmet from "helmet";import rateLimit from "express-rate-limit";import bcrypt from "bcrypt";import jwt from "jsonwebtoken";import dotenv from "dotenv";import path from "node:path";
+import {pool} from "./db.js";import {requireAdmin} from "./auth.js";dotenv.config();
+const app=express(),PORT=process.env.PORT||3000;app.use(helmet());app.use(cookieParser());app.use(express.json({limit:"200kb"}));
+app.use(rateLimit({windowMs:60000,limit:150,standardHeaders:true,legacyHeaders:false}));
+app.use(express.static(path.resolve("public")));
+app.post("/api/admin/login",async(req,res)=>{try{const {email,password}=req.body;if(email!==process.env.ADMIN_EMAIL||password!==process.env.ADMIN_PASSWORD)return res.status(401).json({error:"LOGIN_FAILED"});const token=jwt.sign({email,role:"admin"},process.env.JWT_SECRET,{expiresIn:"8h"});res.cookie("admin_token",token,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",maxAge:8*60*60*1000});res.json({ok:true})}catch{res.status(500).json({error:"LOGIN_ERROR"})}});
+app.post("/api/admin/logout",(req,res)=>{res.clearCookie("admin_token");res.json({ok:true})});
+app.get("/api/admin/stats",requireAdmin,async(req,res)=>{const [p,o,e,b]=await Promise.all([
+pool.query("SELECT COUNT(*)::int n FROM products"),pool.query("SELECT COUNT(*)::int n FROM orders"),pool.query("SELECT COUNT(*)::int n FROM ebooks"),pool.query("SELECT COALESCE(SUM(amount),0)::numeric revenue FROM orders WHERE status='PAID'")]);res.json({products:p.rows[0].n,orders:o.rows[0].n,ebooks:e.rows[0].n,revenue:b.rows[0].revenue})});
+app.get("/api/admin/products",requireAdmin,async(req,res)=>{const r=await pool.query("SELECT * FROM products ORDER BY id DESC");res.json(r.rows)});
+app.patch("/api/admin/products/:id",requireAdmin,async(req,res)=>{const {name,price,active}=req.body;const r=await pool.query("UPDATE products SET name=COALESCE($1,name),price=COALESCE($2,price),active=COALESCE($3,active) WHERE id=$4 RETURNING *",[name,price,active,req.params.id]);res.json(r.rows[0]||null)});
+app.get("/api/admin/orders",requireAdmin,async(req,res)=>{const r=await pool.query("SELECT * FROM orders ORDER BY id DESC LIMIT 200");res.json(r.rows)});
+app.get("/api/admin/ebooks",requireAdmin,async(req,res)=>{const r=await pool.query("SELECT * FROM ebooks ORDER BY id DESC");res.json(r.rows)});
+app.get("/api/admin/buttons",requireAdmin,async(req,res)=>{const r=await pool.query("SELECT * FROM buttons ORDER BY sort_order,id");res.json(r.rows)});
+app.post("/api/admin/buttons",requireAdmin,async(req,res)=>{const {label,href,active=true,sort_order=0}=req.body;if(!label||!href)return res.status(400).json({error:"LABEL_AND_HREF_REQUIRED"});const r=await pool.query("INSERT INTO buttons(label,href,active,sort_order) VALUES($1,$2,$3,$4) RETURNING *",[label,href,active,sort_order]);res.status(201).json(r.rows[0])});
+app.patch("/api/admin/buttons/:id",requireAdmin,async(req,res)=>{const {label,href,active,sort_order}=req.body;const r=await pool.query("UPDATE buttons SET label=COALESCE($1,label),href=COALESCE($2,href),active=COALESCE($3,active),sort_order=COALESCE($4,sort_order),updated_at=NOW() WHERE id=$5 RETURNING *",[label,href,active,sort_order,req.params.id]);res.json(r.rows[0]||null)});
+app.get("/api/store/products",async(req,res)=>{try{const r=await pool.query("SELECT id,name,price,image_url FROM products WHERE active=TRUE ORDER BY id DESC LIMIT 12");res.json(r.rows)}catch{res.status(500).json({error:"STORE_PRODUCTS_ERROR"})}});
+app.get("/api/store/buttons",async(req,res)=>{try{const r=await pool.query("SELECT id,label,href FROM buttons WHERE active=TRUE ORDER BY sort_order,id");res.json(r.rows)}catch{res.status(500).json({error:"STORE_BUTTONS_ERROR"})}});
+app.get("/api/health",(req,res)=>res.json({ok:true,version:"7.7.0"}));
+app.listen(PORT,()=>console.log(`V7.7 running http://localhost:${PORT}`));
