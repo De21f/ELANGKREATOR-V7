@@ -1,0 +1,23 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V7.7 Admin Control</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial;background:#f4f7fb;color:#10233f}.top{background:#0b5cff;color:#fff;padding:20px}.wrap{max-width:1200px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.card{background:#fff;border-radius:18px;padding:22px;box-shadow:0 8px 28px #10233f12}.num{font-size:30px;font-weight:800;margin-top:8px}.row{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}button,input{padding:11px;border:1px solid #ccd5e3;border-radius:10px}button{background:#0b5cff;color:#fff;border:0;cursor:pointer}.danger{background:#b42318}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid #e6ebf2;text-align:left}@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:500px){.grid{grid-template-columns:1fr}}
+</style></head><body><div class="top"><div class="wrap"><h1>V7.7 Admin Full Control</h1><p>Produk • Pricing • Order • Ebook • Tombol</p></div></div><main class="wrap">
+<div class="card" id="login"><h2>Admin Login</h2><input id="email" placeholder="Email"><input id="pass" type="password" placeholder="Password"><button onclick="login()">Masuk</button><p id="msg"></p></div>
+<div id="dash" hidden><div class="grid"><div class="card">Produk<div class="num" id="products">-</div></div><div class="card">Order<div class="num" id="orders">-</div></div><div class="card">Ebook<div class="num" id="ebooks">-</div></div><div class="card">Pendapatan<div class="num" id="revenue">-</div></div></div>
+<div class="card" style="margin-top:20px"><h2>Produk & Pricing</h2><table class="table"><thead><tr><th>ID</th><th>Nama</th><th>Harga</th><th>Aktif</th><th>Aksi</th></tr></thead><tbody id="plist"></tbody></table></div>
+<div class="card" style="margin-top:20px"><h2>Order Terbaru</h2><table class="table"><thead><tr><th>ID</th><th>Status</th><th>Email</th><th>Amount</th></tr></thead><tbody id="olist"></tbody></table></div>
+<div class="card" style="margin-top:20px"><h2>Button Manager</h2><div class="row"><input id="blabel" placeholder="Label"><input id="bhref" placeholder="/solusi.html"><button onclick="addButton()">Tambah</button></div><div id="buttons"></div></div>
+<button class="danger" onclick="logout()">Keluar</button></div></main>
+<script>
+const $=id=>document.getElementById(id);
+async function api(u,o={}){const r=await fetch(u,o);if(r.status===401)throw 0;return r.json()}
+async function login(){const r=await api("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("email").value,password:$("pass").value})});if(r.ok){$("login").hidden=true;$("dash").hidden=false;load()}else $("msg").textContent=r.error}
+async function load(){try{const s=await api("/api/admin/stats");$("products").textContent=s.products;$("orders").textContent=s.orders;$("ebooks").textContent=s.ebooks;$("revenue").textContent=new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR"}).format(s.revenue);
+const p=await api("/api/admin/products");$("plist").innerHTML=p.map(x=>`<tr><td>${x.id}</td><td>${x.name}</td><td><input id="price-${x.id}" value="${x.price}"></td><td>${x.active?"✓":"—"}</td><td><button onclick="saveProduct(${x.id})">Simpan</button></td></tr>`).join("");
+const o=await api("/api/admin/orders");$("olist").innerHTML=o.map(x=>`<tr><td>${x.id}</td><td>${x.status}</td><td>${x.customer_email||"-"}</td><td>${x.amount}</td></tr>`).join("");
+const b=await api("/api/admin/buttons");$("buttons").innerHTML=b.map(x=>`<div class="row"><b>${x.label}</b><span>${x.href}</span><button onclick="toggleButton(${x.id},${!x.active})">${x.active?"Nonaktifkan":"Aktifkan"}</button></div>`).join("")
+}catch{$("login").hidden=false;$("dash").hidden=true}}
+async function saveProduct(id){await api("/api/admin/products/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({price:Number($("price-"+id).value)})});load()}
+async function addButton(){await api("/api/admin/buttons",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:$("blabel").value,href:$("bhref").value})});$("blabel").value="";$("bhref").value="";load()}
+async function toggleButton(id,active){await api("/api/admin/buttons/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({active})});load()}
+async function logout(){await api("/api/admin/logout",{method:"POST"});location.reload()}
+</script></body></html>
