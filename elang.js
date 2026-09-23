@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const toast=$('#toast');
 function notify(t){toast.textContent=t;toast.classList.add('show');clearTimeout(window.__t);window.__t=setTimeout(()=>toast.classList.remove('show'),2300)}
-function wa(name='konsultasi'){return 'https://wa.me/6280000000000?text='+encodeURIComponent(`Halo ELANGKREATOR, saya ingin ${name}.`)}
+function wa(name='konsultasi'){return 'https://wa.me/6281280380626?text='+encodeURIComponent(`Halo ELANGKREATOR, saya ingin ${name}.`)}
 $('#waBtn').href=wa('konsultasi tentang layanan/produk');
 $('#heartBtn').onclick=e=>{e.currentTarget.textContent=e.currentTarget.textContent==='♥'?'♡':'♥';notify(e.currentTarget.textContent==='♥'?'Ditambahkan ke favorit':'Dihapus dari favorit')};
 $('#shareBtn').onclick=async()=>{try{if(navigator.share)await navigator.share({title:document.title,url:location.href});else{await navigator.clipboard.writeText(location.href);notify('Link berhasil disalin')}}catch{}};
